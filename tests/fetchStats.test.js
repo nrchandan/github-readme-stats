@@ -133,4 +133,56 @@ describe("Test fetchStats", () => {
       rank,
     });
   });
+
+  it("should fetch contributions from a given date", async () => {
+    const dataFromDate = {
+      data: {
+        user: {
+          name: "John Doe",
+          contributionsCollection: {
+            totalCommitContributions: 16,
+            restrictedContributionsCount: 0,
+            totalIssueContributions: 1,
+            totalPullRequestContributions: 3,
+            totalRepositoryContributions: 6,
+          },
+          repositoriesContributedTo: {
+            totalCount: 3
+          },
+          pullRequests: { totalCount: 4 },
+          issues: { totalCount: 2 },
+          followers: { totalCount: 0 },
+          repositories: {
+            totalCount: 1,
+            nodes: [
+              { stargazers: { totalCount: 1 } },
+            ],
+          },
+        },
+      },
+    };
+
+    mock.onPost("https://api.github.com/graphql").reply(200, dataFromDate);
+
+    let stats = await fetchStats("johndoe", false, false, "2020-09-01T00:00:00.000Z");
+    const rank = calculateRank({
+      totalCommits: 16,
+      totalRepos: 6,
+      followers: 0,
+      contributions: 16,
+      stargazers: 1,
+      prs: 3,
+      issues: 1,
+    });
+
+    expect(stats).toStrictEqual({
+      contributedTo: 6,
+      name: "John Doe",
+      totalCommits: 16,
+      totalIssues: 1,
+      totalPRs: 3,
+      totalStars: 1,
+      rank,
+    });
+  });
 });

@@ -14,9 +14,12 @@ const fetcher = (variables, token) => {
         user(login: $login) {
           name
           login
-          contributionsCollection {
+          contributionsCollection(from: $from) {
             totalCommitContributions
             restrictedContributionsCount
+            totalIssueContributions
+            totalPullRequestContributions
+            totalRepositoryContributions
           }
           repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
             totalCount
@@ -71,7 +74,7 @@ const totalCommitsFetcher = async (username) => {
   };
 
   try {
-    let res = await retryer(fetchTotalCommits, { login: username });
+    const res = await retryer(fetchTotalCommits, { login: username });
     if (res.data.total_count) {
       return res.data.total_count;
     }
@@ -86,7 +89,8 @@ const totalCommitsFetcher = async (username) => {
 async function fetchStats(
   username,
   count_private = false,
-  include_all_commits = false
+  include_all_commits = false,
+  from
 ) {
   if (!username) throw Error("Invalid username");
 
@@ -100,7 +104,7 @@ async function fetchStats(
     rank: { level: "C", score: 0 },
   };
 
-  let res = await retryer(fetcher, { login: username });
+  const res = await retryer(fetcher, { login: username, from });
 
   let experimental_totalCommits = 0;
   if (include_all_commits) {
@@ -119,7 +123,6 @@ async function fetchStats(
   const contributionCount = user.contributionsCollection;
 
   stats.name = user.name || user.login;
-  stats.totalIssues = user.issues.totalCount;
 
   stats.totalCommits =
     contributionCount.totalCommitContributions + experimental_totalCommits;
@@ -128,8 +131,15 @@ async function fetchStats(
     stats.totalCommits += contributionCount.restrictedContributionsCount;
   }
 
-  stats.totalPRs = user.pullRequests.totalCount;
-  stats.contributedTo = user.repositoriesContributedTo.totalCount;
+  if (from) {
+    stats.totalIssues = contributionCount.totalIssueContributions;
+    stats.totalPRs = contributionCount.totalPullRequestContributions;
+    stats.contributedTo = contributionCount.totalRepositoryContributions;
+  } else {
+    stats.totalIssues = user.issues.totalCount;
+    stats.totalPRs = user.pullRequests.totalCount;
+    stats.contributedTo = user.repositoriesContributedTo.totalCount;
+  }
 
   stats.totalStars = user.repositories.nodes.reduce((prev, curr) => {
     return prev + curr.stargazers.totalCount;
